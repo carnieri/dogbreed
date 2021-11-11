@@ -1,0 +1,9 @@
+torch
+torchvision
+fastai
+notebook
+ipywidgets
+ipykernel
+opencv-python
+gdown
+faiss-cpu
