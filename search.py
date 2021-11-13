@@ -113,37 +113,54 @@ def search_accuracy(searcher, imgs, embeddings, class_names, k=5, threshold=0.0)
     return acc, dist_all, dist_correct, dist_incorrect, dist_empty
 
 
-def plot_results(imgs, embeddings, class_names):
+def plot_results(searcher, imgs, embeddings, class_names):
     (
         acc,
         dist_all,
         dist_correct,
         dist_incorrect,
         dist_empty,
-    ) = search_accuracy(imgs, embeddings, class_names)
+    ) = search_accuracy(searcher, imgs, embeddings, class_names)
     print(f"dist_all.shape: {dist_all.shape}")
     print(f"dist_correct.shape: {dist_correct.shape}")
     print(f"dist_incorrect.shape: {dist_incorrect.shape}")
     print(f"dist_empty.shape: {dist_empty.shape}")
-    plt.subplot(4, 1, 1)
-    plt.plot(dist_all)
-    plt.axis([0, len(dist_all), 0, 1.0])
+
+    plt.subplot(2, 1, 1)
+    plt.hist(dist_correct, bins=100)
+    plt.xlim([0, 1.0])
+    plt.xlabel("mean distance to k-nearest neighbors")
+    plt.ylabel("frequency")
+    plt.title("Mean distance histogram - correctly classified samples")
     plt.show()
 
-    plt.subplot(4, 1, 2)
-    plt.plot(dist_correct)
-    plt.axis([0, len(dist_correct), 0, 1.0])
+    plt.subplot(2, 1, 2)
+    plt.hist(dist_incorrect, bins=100)
+    plt.xlim([0, 1.0])
+    plt.xlabel("mean distance to k-nearest neighbors")
+    plt.ylabel("frequency")
+    plt.title("Mean distance histogram - incorrectly classified samples")
     plt.show()
 
-    plt.subplot(4, 1, 3)
-    plt.plot(dist_incorrect)
-    plt.axis([0, len(dist_incorrect), 0, 1.0])
-    plt.show()
+    # plt.subplot(4, 1, 1)
+    # plt.plot(dist_all)
+    # plt.axis([0, len(dist_all), 0, 1.0])
+    # plt.show()
 
-    plt.subplot(4, 1, 4)
-    plt.plot(dist_empty)
-    plt.axis([0, len(dist_empty), 0, 1.0])
-    plt.show()
+    # plt.subplot(4, 1, 2)
+    # plt.plot(dist_correct)
+    # plt.axis([0, len(dist_correct), 0, 1.0])
+    # plt.show()
+
+    # plt.subplot(4, 1, 3)
+    # plt.plot(dist_incorrect)
+    # plt.axis([0, len(dist_incorrect), 0, 1.0])
+    # plt.show()
+
+    # plt.subplot(4, 1, 4)
+    # plt.plot(dist_empty)
+    # plt.axis([0, len(dist_empty), 0, 1.0])
+    # plt.show()
 
 
 def calculate_rejection_accuracy(searcher, imgs, embeddings, threshold=0.78):
