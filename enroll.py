@@ -7,6 +7,10 @@ class FaissImageSearch:
     def __init__(self, learn, n_features=2048, metric="cosine"):
         self.learn = learn
         self.embedder = slice_model(self.learn.model, to_layer=-1)
+        print("learn.model:")
+        print(self.learn.model)
+        print("embedder:")
+        print(self.embedder)
         self.ids = []  # class id of each instance that is added
         self.class_name_to_id = {}
         self.id_to_class_name = {}
@@ -22,10 +26,6 @@ class FaissImageSearch:
 
     def get_embedding(self, imgs):
         return get_embedding(self.learn, self.embedder, imgs)
-
-    # def enroll(self, img, img_class):
-    #     es = self.get_embedding(img)
-    #     TO BE CONTINUED
 
     def get_id(self, class_name):
         if class_name in self.class_name_to_id:
@@ -51,70 +51,28 @@ class FaissImageSearch:
         # we always work with a single query item
         distances = distances[0]
         neighbors = neighbors[0]
-        class_names = [self.id_to_class_name[self.ids[ix]] for ix in neighbors]
-        return distances, neighbors, class_names
+        class_ids = np.array([self.ids[ix] for ix in neighbors if ix != -1])
+        class_names = [
+            self.id_to_class_name[self.ids[ix]] for ix in neighbors if ix != -1
+        ]
+        if class_names == []:
+            return distances, neighbors, class_names, None
+
+        max_class = max(set(class_names), key=class_names.count)
+        max_id = self.class_name_to_id[max_class]
+        count_max_class = class_names.count(max_class)
+        if count_max_class > k // 2:
+            # we have a winner
+            # collect distances from winning class
+            distances_max_class = distances[class_ids == max_id]
+            mean_dist = np.mean(distances_max_class)
+            # print(f"mean_dist: {mean_dist}")
+            # TODO filter output by distance threshold
+            return distances, neighbors, class_names, max_class
+        else:
+            # not confident enough to classify query
+            return distances, neighbors, class_names, None
 
     def search(self, query_img, k=5):
         e = self.get_embedding([query_img])
         return self.search_from_vector(e, k=k)
-
-
-class NaiveImageSearch:
-    def __init__(self, learn, n_features=2048):
-        self.learn = learn
-        self.embedder = slice_model(self.learn.model, to_layer=-1)
-
-        self.n_features = n_features
-        self.embeddings = np.zeros((0, self.n_features), dtype=np.float32)
-        self.ids = []
-        self.class_name_to_id = {}
-        self.id_to_class_name = {}
-        self.max_id = 0
-
-        self.imgs = []  # for debugging only
-
-    def get_embedding(self, imgs):
-        return get_embedding(self.learn, self.embedder, imgs)
-
-    def get_id(self, class_name):
-        if class_name in self.class_name_to_id:
-            class_id = self.class_name_to_id[class_name]
-        else:
-            class_id = self.max_id
-            self.class_name_to_id[class_name] = class_id
-            self.id_to_class_name[class_id] = class_name
-            self.max_id += 1
-        return class_id
-
-    def enroll(self, img, class_name):
-        e = self.get_embedding([img])[0, :]
-        class_id = self.get_id(class_name)
-        self.embeddings.append(e)
-        self.ids.append(class_id)
-
-    def enroll_many(self, imgs, class_names):
-        n_samples = len(imgs)
-        embeddings = self.get_embedding(imgs)
-        print(f"enroll_many es.shape: {embeddings.shape}")
-        for i in range(n_samples):
-            class_id = self.get_id(class_names[i])
-            self.ids.append(class_id)
-        self.embeddings = np.vstack((self.embeddings, embeddings))
-        self.imgs.extend(imgs)
-
-    def search(self, query_img, k=1):
-        e = self.get_embedding([query_img])
-        # use squared distance instead of distance, for speed
-        d = ((self.embeddings - e) ** 2).sum(axis=1)
-        d_list = d.tolist()
-        sorted_pairs = sorted(zip(d_list, range(len(d))))
-        winning_distances, winning_ixs = zip(*sorted_pairs)
-        winning_class_names = [
-            self.id_to_class_name[self.ids[ix]] for ix in winning_ixs
-        ]
-        k = min(k, len(sorted_pairs))
-        return (
-            winning_distances[:k],
-            winning_ixs[:k],
-            winning_class_names[:k],
-        )
