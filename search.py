@@ -1,16 +1,14 @@
+from fastai.vision.all import *
 import numpy as np
 import faiss
-from utils import slice_model, get_embedding
+
+from utils import label_func, get_embedding, slice_model
 
 
 class FaissImageSearch:
     def __init__(self, learn, n_features=2048, metric="cosine"):
         self.learn = learn
         self.embedder = slice_model(self.learn.model, to_layer=-1)
-        print("learn.model:")
-        print(self.learn.model)
-        print("embedder:")
-        print(self.embedder)
         self.ids = []  # class id of each instance that is added
         self.class_name_to_id = {}
         self.id_to_class_name = {}
@@ -76,3 +74,89 @@ class FaissImageSearch:
     def search(self, query_img, k=5):
         e = self.get_embedding([query_img])
         return self.search_from_vector(e, k=k)
+
+
+def search_from_path(searcher, path, k=3):
+    img = PILImage.create(path)
+    ds, ixs, names, winner = searcher.search(img, k=k)
+    return ds, ixs, names, winner
+
+
+def search_accuracy(searcher, imgs, embeddings, class_names, k=5, threshold=0.0):
+    dist_correct = []
+    dist_incorrect = []
+    dist_empty = []
+    dist_all = []
+    correct = 0
+    incorrect = 0
+    for i in range(len(imgs)):
+        # if i % 100 == 0:
+        #     print(i)
+        ds, ixs, names, winner = searcher.search_from_vector(
+            np.expand_dims(embeddings[i], axis=0), k=k
+        )
+        if winner is not None:
+            if winner == class_names[i] and ds[0] >= threshold:
+                correct += 1
+                dist_correct.append(ds[0])
+            else:
+                incorrect += 1
+                dist_incorrect.append(ds[0])
+        else:
+            dist_empty.append(ds[0])
+        dist_all.append(ds[0])
+    acc = float(correct) / len(imgs)
+    dist_all = np.array(dist_all)
+    dist_correct = np.array(dist_correct)
+    dist_incorrect = np.array(dist_incorrect)
+    dist_empty = np.array(dist_empty)
+    return acc, dist_all, dist_correct, dist_incorrect, dist_empty
+
+
+def plot_results(imgs, embeddings, class_names):
+    (
+        acc,
+        dist_all,
+        dist_correct,
+        dist_incorrect,
+        dist_empty,
+    ) = search_accuracy(imgs, embeddings, class_names)
+    print(f"dist_all.shape: {dist_all.shape}")
+    print(f"dist_correct.shape: {dist_correct.shape}")
+    print(f"dist_incorrect.shape: {dist_incorrect.shape}")
+    print(f"dist_empty.shape: {dist_empty.shape}")
+    plt.subplot(4, 1, 1)
+    plt.plot(dist_all)
+    plt.axis([0, len(dist_all), 0, 1.0])
+    plt.show()
+
+    plt.subplot(4, 1, 2)
+    plt.plot(dist_correct)
+    plt.axis([0, len(dist_correct), 0, 1.0])
+    plt.show()
+
+    plt.subplot(4, 1, 3)
+    plt.plot(dist_incorrect)
+    plt.axis([0, len(dist_incorrect), 0, 1.0])
+    plt.show()
+
+    plt.subplot(4, 1, 4)
+    plt.plot(dist_empty)
+    plt.axis([0, len(dist_empty), 0, 1.0])
+    plt.show()
+
+
+def calculate_rejection_accuracy(searcher, imgs, embeddings, threshold=0.78):
+    """Assumes that samples are from classes unknown to the database."""
+    correct = 0
+    for i in range(len(imgs)):
+        if i % 100 == 0:
+            print(i)
+        ds, ixs, names, winner = searcher.search_from_vector(
+            np.expand_dims(embeddings[i], axis=0), k=1
+        )
+        if ds[0] < threshold:
+            correct += 1
+    acc = float(correct) / len(imgs)
+    print(f"acc: {acc}")
+    return acc
