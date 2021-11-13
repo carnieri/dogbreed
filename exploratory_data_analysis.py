@@ -20,6 +20,7 @@ def summarize_resolutions(path):
         aspect_ratio = h / w
         aspect_ratios[aspect_ratio] += 1
         aspect_ratio_list.append(aspect_ratio)
+    print("")
     print(f"resolutions seen in {path}:")
     pprint(sizes)
     print("")
@@ -36,3 +37,5 @@ def summarize_resolutions(path):
 
 if __name__ == "__main__":
     summarize_resolutions("dogs/train")
+    summarize_resolutions("dogs/recognition/enroll")
+    summarize_resolutions("dogs/recognition/test")
