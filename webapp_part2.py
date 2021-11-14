@@ -36,9 +36,9 @@ def get_image_from_upload():
     return None
 
 
-def get_prediction(searcher, img, threshold):
+def get_prediction(searcher, img, k, threshold):
     if st.button("Classify"):
-        ds, ixs, names, winner = searcher.search(img, threshold=threshold)
+        ds, ixs, names, winner = searcher.search(img, k=k, threshold=threshold)
         st.write(f"distances: {ds}")
         # st.write(f"ixs: {ixs}")
         st.write(f"breeds: {names}")
@@ -58,26 +58,52 @@ def pre_enroll(searcher, path="dogs/recognition/enroll/"):
     st.write("Done pre-enrolling.")
 
 
+def enroll_new_image(searcher, img):
+    breed_name = st.text_input("Input breed name of uploaded image")
+    if breed_name != "":
+        if st.button("Enroll"):
+            searcher.enroll_many([img], [breed_name])
+            searcher.dump("models")
+        else:
+            st.write("Click the button to enroll the uploaded image and its breed name")
+
+
 def main():
-    st.title("Dog breed search with index")
+    st.title(
+        "Search a dog's breed from an image, or enroll a new image and the dog's breed for future search"
+    )
 
     # Load model and searcher
     searcher = load_FaissImageSearch("models")
     if searcher is not None:
-        st.write(f"Loaded index from pickle")
+        st.write(f"Loaded index from cache")
     else:
         model = read_model()
         searcher = FaissImageSearch(model)
         pre_enroll(searcher)
         searcher.dump("models")
 
+    st.write(
+        f"Index currently contains {len(searcher.ids)} images from {len(searcher.class_name_to_id)} breeds"
+    )
+
     img = get_image_from_upload()
     if img is not None:
         st.image(img.to_thumb(500, 500), caption="Uploaded Image")
         threshold = float(
-            st.text_input("Distance threshold (recommended: 0.78)", "0.78")
+            st.text_input(
+                "Distance threshold (between 0 and 1, recommended: 0.78, higher values mean stricter search)",
+                "0.78",
+            )
         )
-        get_prediction(searcher, img, threshold)
+        k = int(
+            st.text_input(
+                "k = Number of similar images of the same breed that have to be found to consider a match",
+                "5",
+            )
+        )
+        get_prediction(searcher, img, k, threshold)
+        enroll_new_image(searcher, img)
 
 
 if __name__ == "__main__":
