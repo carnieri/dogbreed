@@ -1,13 +1,13 @@
-from fastai.vision.widgets import *
-from fastai.vision.all import *
-
 from pathlib import Path
 
 import streamlit as st
+from fastai.vision.all import *
+from fastai.vision.widgets import *
 
 
-class Predict:
+class PredictPart1:
     def __init__(self, filename):
+        st.title("Classify image into 100 dog breeds")
         self.learn_inference = load_learner(Path() / filename)
         self.img = self.get_image_from_upload()
         if self.img is not None:
@@ -25,7 +25,6 @@ class Predict:
         st.image(self.img.to_thumb(500, 500), caption="Uploaded Image")
 
     def get_prediction(self):
-
         if st.button("Classify"):
             pred, pred_idx, probs = self.learn_inference.predict(self.img)
             st.write(f"Prediction: {pred}; Probability: {probs[pred_idx]:.04f}")
@@ -34,7 +33,5 @@ class Predict:
 
 
 if __name__ == "__main__":
-
-    model_path = "dogs/train/exported_resnext50_32x4d.pickle"
-
-    predictor = Predict(model_path)
+    model_path = "models/exported_resnext50_32x4d.pickle"
+    predictor = PredictPart1(model_path)
