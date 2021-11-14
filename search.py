@@ -2,19 +2,21 @@ from fastai.vision.all import *
 import numpy as np
 import faiss
 
-from utils import label_func, get_embedding, slice_model
+from utils import get_embedding, slice_model
 
 
 class FaissImageSearch:
-    def __init__(self, learn, n_features=2048, metric="cosine"):
+    def __init__(self, learn, n_features=2048, metric="cosine", debug=False):
         self.learn = learn
         self.embedder = slice_model(self.learn.model, to_layer=-1)
         self.ids = []  # class id of each instance that is added
         self.class_name_to_id = {}
         self.id_to_class_name = {}
         self.max_id = 0
+        self.debug = debug
 
-        self.imgs = []  # for debugging only
+        if self.debug:
+            self.imgs = []  # for debugging only
 
         self.n_features = n_features
         if metric == "euclidean":
@@ -37,13 +39,13 @@ class FaissImageSearch:
 
     def enroll_many(self, imgs, class_names):
         embeddings = self.get_embedding(imgs)
-        print(f"enroll_many embeddings.shape: {embeddings.shape}")
         ids = np.array([self.get_id(class_name) for class_name in class_names])
         self.ids.extend(ids)
-        self.imgs.extend(imgs)
+        if self.debug:
+            self.imgs.extend(imgs)
         self.index.add(embeddings)
 
-    def search_from_vector(self, e, k=5):
+    def search_from_vector(self, e, k=5, threshold=0.0):
         assert e.shape == (1, self.n_features)
         distances, neighbors = self.index.search(e, k)
         # we always work with a single query item
@@ -64,19 +66,45 @@ class FaissImageSearch:
             # collect distances from winning class
             distances_max_class = distances[class_ids == max_id]
             mean_dist = np.mean(distances_max_class)
-            # print(f"mean_dist: {mean_dist}")
-            # TODO filter output by distance threshold
+            if mean_dist < threshold:
+                max_class = None
             return distances, neighbors, class_names, max_class
         else:
             # not confident enough to classify query
             return distances, neighbors, class_names, None
 
-    def search(self, query_img, k=5):
+    def search(self, query_img, k=5, threshold=0.0):
         e = self.get_embedding([query_img])
-        return self.search_from_vector(e, k=k)
+        return self.search_from_vector(e, k=k, threshold=threshold)
+
+    def reset(self):
+        self.index.reset()
+
+    def dump(self, path):
+        # dump faiss index
+        faiss.write_index(self.index, str(Path(path) / "faiss_index.bin"))
+        # dump instance variables
+        index = self.index
+        self.index = None
+        pickle.dump(self, open(Path(path) / "FaissImageSearch.pickle", "wb"))
+        self.index = index
+
+    @staticmethod
+    def load(path):
+        path = Path(path)
+        pickle_path = path / "FaissImageSearch.pickle"
+        bin_path = path / "faiss_index.bin"
+        if pickle_path.exists() and bin_path.exists():
+            # load instance variables
+            searcher = pickle.load(open(pickle_path, "rb"))
+            # load faiss index
+            searcher.index = faiss.read_index(str(bin_path))
+            return searcher
+        else:
+            return None
 
 
-def search_from_path(searcher, path, k=3):
+def search_from_path(searcher, path, k=5):
     img = PILImage.create(path)
     ds, ixs, names, winner = searcher.search(img, k=k)
     return ds, ixs, names, winner
