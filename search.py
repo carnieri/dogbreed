@@ -46,6 +46,8 @@ class FaissImageSearch:
         self.index.add(embeddings)
 
     def search_from_vector(self, e, k=5, threshold=0.0):
+        if len(e.shape) == 1:
+            e = np.expand_dims(e, axis=0)
         assert e.shape == (1, self.n_features)
         distances, neighbors = self.index.search(e, k)
         # we always work with a single query item
@@ -81,12 +83,14 @@ class FaissImageSearch:
         self.index.reset()
 
     def dump(self, path):
+        path = Path(path)
+        path.mkdir(parents=True, exist_ok=True)
         # dump faiss index
-        faiss.write_index(self.index, str(Path(path) / "faiss_index.bin"))
-        # dump instance variables
+        faiss.write_index(self.index, str(path / "faiss_index.bin"))
+        # dump self, but exclude index
         index = self.index
         self.index = None
-        pickle.dump(self, open(Path(path) / "FaissImageSearch.pickle", "wb"))
+        pickle.dump(self, open(path / "FaissImageSearch.pickle", "wb"))
         self.index = index
 
     @staticmethod
@@ -110,21 +114,19 @@ def search_from_path(searcher, path, k=5):
     return ds, ixs, names, winner
 
 
-def search_accuracy(searcher, imgs, embeddings, class_names, k=5, threshold=0.0):
+def search_accuracy(searcher, embeddings, class_names, k=5, threshold=0.0):
     dist_correct = []
     dist_incorrect = []
     dist_empty = []
     dist_all = []
     correct = 0
     incorrect = 0
-    for i in range(len(imgs)):
-        # if i % 100 == 0:
-        #     print(i)
+    for i in range(len(embeddings)):
         ds, ixs, names, winner = searcher.search_from_vector(
-            np.expand_dims(embeddings[i], axis=0), k=k
+            embeddings[i], k=k, threshold=threshold
         )
         if winner is not None:
-            if winner == class_names[i] and ds[0] >= threshold:
+            if winner == class_names[i]:
                 correct += 1
                 dist_correct.append(ds[0])
             else:
@@ -133,7 +135,7 @@ def search_accuracy(searcher, imgs, embeddings, class_names, k=5, threshold=0.0)
         else:
             dist_empty.append(ds[0])
         dist_all.append(ds[0])
-    acc = float(correct) / len(imgs)
+    acc = float(correct) / len(embeddings)
     dist_all = np.array(dist_all)
     dist_correct = np.array(dist_correct)
     dist_incorrect = np.array(dist_incorrect)
@@ -141,20 +143,16 @@ def search_accuracy(searcher, imgs, embeddings, class_names, k=5, threshold=0.0)
     return acc, dist_all, dist_correct, dist_incorrect, dist_empty
 
 
-def plot_results(searcher, imgs, embeddings, class_names):
-    (
-        acc,
-        dist_all,
-        dist_correct,
-        dist_incorrect,
-        dist_empty,
-    ) = search_accuracy(searcher, imgs, embeddings, class_names)
+def plot_results(searcher, imgs, embeddings, class_names, k=5, threshold=0.0):
+    (acc, dist_all, dist_correct, dist_incorrect, dist_empty,) = search_accuracy(
+        searcher, imgs, embeddings, class_names, k=k, threshold=threshold
+    )
     print(f"dist_all.shape: {dist_all.shape}")
     print(f"dist_correct.shape: {dist_correct.shape}")
     print(f"dist_incorrect.shape: {dist_incorrect.shape}")
     print(f"dist_empty.shape: {dist_empty.shape}")
 
-    plt.subplot(2, 1, 1)
+    plt.subplot(3, 1, 1)
     plt.hist(dist_correct, bins=100)
     plt.xlim([0, 1.0])
     plt.xlabel("mean distance to k-nearest neighbors")
@@ -162,7 +160,7 @@ def plot_results(searcher, imgs, embeddings, class_names):
     plt.title("Mean distance histogram - correctly classified samples")
     plt.show()
 
-    plt.subplot(2, 1, 2)
+    plt.subplot(3, 1, 2)
     plt.hist(dist_incorrect, bins=100)
     plt.xlim([0, 1.0])
     plt.xlabel("mean distance to k-nearest neighbors")
@@ -170,38 +168,25 @@ def plot_results(searcher, imgs, embeddings, class_names):
     plt.title("Mean distance histogram - incorrectly classified samples")
     plt.show()
 
-    # plt.subplot(4, 1, 1)
-    # plt.plot(dist_all)
-    # plt.axis([0, len(dist_all), 0, 1.0])
-    # plt.show()
-
-    # plt.subplot(4, 1, 2)
-    # plt.plot(dist_correct)
-    # plt.axis([0, len(dist_correct), 0, 1.0])
-    # plt.show()
-
-    # plt.subplot(4, 1, 3)
-    # plt.plot(dist_incorrect)
-    # plt.axis([0, len(dist_incorrect), 0, 1.0])
-    # plt.show()
-
-    # plt.subplot(4, 1, 4)
-    # plt.plot(dist_empty)
-    # plt.axis([0, len(dist_empty), 0, 1.0])
-    # plt.show()
+    if len(dist_empty) > 0:
+        plt.subplot(3, 1, 3)
+        plt.hist(dist_empty, bins=100)
+        plt.xlim([0, 1.0])
+        plt.xlabel("mean distance to k-nearest neighbors")
+        plt.ylabel("frequency")
+        plt.title("Mean distance histogram - samples with no recognition")
+        plt.show()
 
 
-def calculate_rejection_accuracy(searcher, imgs, embeddings, threshold=0.78):
+def calculate_rejection_accuracy(searcher, embeddings, k=5, threshold=0.78):
     """Assumes that samples are from classes unknown to the database."""
     correct = 0
-    for i in range(len(imgs)):
-        if i % 100 == 0:
-            print(i)
+    for i in range(len(embeddings)):
         ds, ixs, names, winner = searcher.search_from_vector(
-            np.expand_dims(embeddings[i], axis=0), k=1
+            embeddings[i], k=k, threshold=threshold
         )
-        if ds[0] < threshold:
+        if winner is None:
+
             correct += 1
-    acc = float(correct) / len(imgs)
-    print(f"acc: {acc}")
+    acc = float(correct) / len(embeddings)
     return acc
