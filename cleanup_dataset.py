@@ -38,6 +38,10 @@ def remove_duplicates(path):
             hash_dict[digest] = p
 
 
-if __name__ == "__main__":
+def main():
     remove_black_images(Path("dogs/train"))
     remove_duplicates(Path("dogs/train"))
+
+
+if __name__ == "__main__":
+    main()
