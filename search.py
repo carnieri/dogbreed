@@ -143,10 +143,14 @@ def search_accuracy(searcher, embeddings, class_names, k=5, threshold=0.0):
     return acc, dist_all, dist_correct, dist_incorrect, dist_empty
 
 
-def plot_results(searcher, imgs, embeddings, class_names, k=5, threshold=0.0):
-    (acc, dist_all, dist_correct, dist_incorrect, dist_empty,) = search_accuracy(
-        searcher, imgs, embeddings, class_names, k=k, threshold=threshold
-    )
+def plot_results(searcher, embeddings, class_names, k=5, threshold=0.0):
+    (
+        acc,
+        dist_all,
+        dist_correct,
+        dist_incorrect,
+        dist_empty,
+    ) = search_accuracy(searcher, embeddings, class_names, k=k, threshold=threshold)
     print(f"dist_all.shape: {dist_all.shape}")
     print(f"dist_correct.shape: {dist_correct.shape}")
     print(f"dist_incorrect.shape: {dist_incorrect.shape}")
