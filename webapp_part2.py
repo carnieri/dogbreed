@@ -49,6 +49,15 @@ def get_prediction(searcher, img, k, threshold):
         st.write(f"Click the button to classify")
 
 
+def reset_index_button():
+    if st.button("Reset index"):
+        model = read_model()
+        searcher = FaissImageSearch(model)
+        searcher.dump("models")
+    else:
+        st.write("Click to remove all indexed images")
+
+
 def pre_enroll(searcher, path="dogs/recognition/enroll/"):
     enroll_paths = get_image_files(path)
     enroll_class_names = [label_func(p) for p in enroll_paths]
@@ -86,6 +95,8 @@ def main():
     st.write(
         f"Index currently contains {len(searcher.ids)} images from {len(searcher.class_name_to_id)} breeds"
     )
+
+    reset_index_button()
 
     img = get_image_from_upload()
     if img is not None:
