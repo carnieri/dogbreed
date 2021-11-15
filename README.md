@@ -2,8 +2,8 @@
 
 [Dataset](https://drive.google.com/u/0/uc?id=1Xrr_C0ho9UpOarWBluK4pTY1ps92EqxR)
 
-First part: Train a classifier for 100 dog breeds.
+Part 1: Train a classifier for 100 dog breeds. [Trained model](https://drive.google.com/uc?id=1UyLNp68kYoZglzfyDOduEPzXcS6sJwR4)
 
-Second part: Create a system where the user can enroll new images of existing or new breeds, with less than 1 second per image. If the user gives a new image of a known breed to be classified, the system should output the correct breed.
+Part 2: Create a system where the user can enroll new images of existing or new dog breeds. If the user gives a new image of a known breed to be classified, the system should output the correct breed.
 
-Third part: Handle previously unseen breeds.
+Part 3: Handle previously unseen breeds.
